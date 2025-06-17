@@ -1,102 +1,88 @@
 class SankeyDataTransformer
-  NODE_ORDER = [
-    "Indeed", "Referrals", "Facebook", "Ads", "Craigslist",
-    "Applicants", "Pending", "Reviewed", "Interview", "Offer", "Hired", "Lost", "Reject"
+  VERTICAL_ORDER = [
+    "Applicants",
+    "Reviewed",
+    "Pending",
+    "Interview",
+    "Offer",
+    "Hired",
+    "Lost",
+    "Reject"
   ]
 
-  NODE_VERTICAL_ORDER = {
-    "Indeed" => 0,
-    "Referrals" => 1,
-    "Facebook" => 2,
-    "Ads" => 3,
-    "Craigslist" => 4,
-    "Applicants" => 5,
-    "Reviewed" => 6,
-    "Pending" => 7,
-    "Interview" => 8,
-    "Offer" => 9,
-    "Hired" => 10,
-    "Lost" => 11,
-    "Reject" => 12
-  }
+  NODE_ORDER = [
+    "Indeed", "Facebook", "Referrals", "Craigslist", "Ads"
+  ] + VERTICAL_ORDER
 
   SOURCE_COLORS = {
     "Indeed" => "#1f77b4",
-    "Referrals" => "#2ca02c",
     "Facebook" => "#ff7f0e",
-    "Ads" => "#9467bd",
-    "Craigslist" => "#d62728"
+    "Referrals" => "#2ca02c",
+    "Craigslist" => "#d62728",
+    "Ads" => "#9467bd"
   }
 
   def self.transform(month_data)
-    node_names = NODE_ORDER
-    node_index = node_names.each_with_index.to_h
-    links = []
+    nodes = NODE_ORDER
 
-    month_data[:sources].each do |source, count|
-      links << { source: source, target: "Applicants", value: count, origin: source }
-    end
-
-    total_sources = month_data[:sources].values.sum.to_f
-
-    distribute = lambda do |source_stage, target_stage, total_value|
-      month_data[:sources].each do |origin, count|
-        portion = (count / total_sources * total_value).round
-        links << { source: source_stage, target: target_stage, value: portion, origin: origin }
+    # Horizontal positions: sources (0), applicants (0.15), pipeline stages (0.3 → 1.0)
+    node_x = nodes.map do |name|
+      if SOURCE_COLORS.key?(name)
+        0.0
+      elsif name == "Applicants"
+        0.15
+      else
+        0.3
       end
     end
 
-    distribute.call("Applicants", "Pending", month_data[:pending])
-    distribute.call("Applicants", "Reviewed", month_data[:reviewed])
-    distribute.call("Reviewed", "Reject", month_data[:reviewed_reject])
-    distribute.call("Reviewed", "Interview", month_data[:reviewed_interview])
-    distribute.call("Reviewed", "Offer", month_data[:reviewed_offer])
-    distribute.call("Interview", "Offer", month_data[:interview_offer])
-    distribute.call("Interview", "Reject", month_data[:interview_reject])
-    distribute.call("Offer", "Hired", month_data[:hired])
-    distribute.call("Offer", "Lost", month_data[:lost])
-
-    node_flows = Hash.new { |h, k| h[k] = Hash.new(0) }
-
-    links.each do |l|
-      node_flows[l[:target]][l[:origin]] += l[:value]
+    # Vertical positions calculated dynamically
+    node_y = nodes.map do |name|
+      if VERTICAL_ORDER.include?(name)
+        idx = VERTICAL_ORDER.index(name)
+        idx.to_f / (VERTICAL_ORDER.size - 1)
+      else
+        case name
+        when "Indeed" then 0.0
+        when "Facebook" then 0.2
+        when "Referrals" then 0.4
+        when "Craigslist" then 0.6
+        when "Ads" then 0.8
+        else 0.5
+        end
+      end
     end
 
-    blended_node_colors = {}
-    node_flows.each do |node, origins|
-      blended_node_colors[node] = blend_colors(origins)
+    node_lookup = nodes.each_with_index.to_h
+    links = []
+
+    # Sources → Applicants
+    month_data[:sources].each do |source, count|
+      links << { source: node_lookup[source], target: node_lookup["Applicants"], value: count, color: SOURCE_COLORS[source] }
     end
+
+    # Applicants → Pending / Reviewed
+    links << { source: node_lookup["Applicants"], target: node_lookup["Pending"], value: month_data[:pending], color: "#cccccc" }
+    links << { source: node_lookup["Applicants"], target: node_lookup["Reviewed"], value: month_data[:reviewed], color: "#cccccc" }
+
+    # Reviewed → Reject / Interview / Offer
+    links << { source: node_lookup["Reviewed"], target: node_lookup["Reject"], value: month_data[:reviewed_reject], color: "#999999" }
+    links << { source: node_lookup["Reviewed"], target: node_lookup["Interview"], value: month_data[:reviewed_interview], color: "#999999" }
+    links << { source: node_lookup["Reviewed"], target: node_lookup["Offer"], value: month_data[:reviewed_offer], color: "#999999" }
+
+    # Interview → Offer / Reject
+    links << { source: node_lookup["Interview"], target: node_lookup["Offer"], value: month_data[:interview_offer], color: "#999999" }
+    links << { source: node_lookup["Interview"], target: node_lookup["Reject"], value: month_data[:interview_reject], color: "#999999" }
+
+    # Offer → Hired / Lost
+    links << { source: node_lookup["Offer"], target: node_lookup["Hired"], value: month_data[:hired], color: "#999999" }
+    links << { source: node_lookup["Offer"], target: node_lookup["Lost"], value: month_data[:lost], color: "#999999" }
 
     {
-      nodes: node_names,
-      links: links,
-      colors: SOURCE_COLORS,
-      node_colors: blended_node_colors,
-      vertical_order: NODE_VERTICAL_ORDER
+      nodes: nodes,
+      node_x: node_x,
+      node_y: node_y,
+      links: links
     }
-  end
-
-  def self.blend_colors(origins)
-    total = origins.values.sum.to_f
-    r, g, b = 0, 0, 0
-
-    origins.each do |source, value|
-      sr, sg, sb = hex_to_rgb(SOURCE_COLORS[source])
-      weight = value / total
-      r += sr * weight
-      g += sg * weight
-      b += sb * weight
-    end
-
-    rgb_to_hex(r.round, g.round, b.round)
-  end
-
-  def self.hex_to_rgb(hex)
-    hex = hex.delete("#")
-    [hex[0..1], hex[2..3], hex[4..5]].map { |c| c.to_i(16) }
-  end
-
-  def self.rgb_to_hex(r, g, b)
-    "#%02x%02x%02x" % [r, g, b]
   end
 end

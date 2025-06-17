@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sankey Pipeline</title>
+  <title>Sankey</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
   <style>
-    body { font-family: sans-serif; }
     .node rect { stroke: #000; }
-    .node text { font: 14px sans-serif; text-anchor: middle; }
+    .node text { font: 14px sans-serif; }
   </style>
 </head>
 <body>
@@ -24,61 +23,54 @@
     </select>
   </form>
 
-  <svg id="sankey" width="1200" height="800"></svg>
+  <svg width="1200" height="800"></svg>
 
   <script>
-    const graph = <%= raw @graph_data.to_json %>;
+    const graph = {
+      nodes: <%= raw @nodes.map { |name| { name: name } }.to_json %>,
+      links: <%= raw @links.to_json %>
+    };
 
-    const svg = d3.select("#sankey"),
+    const svg = d3.select("svg"),
           width = +svg.attr("width"),
           height = +svg.attr("height");
 
     const sankey = d3.sankey()
-        .nodeWidth(20)
-        .nodePadding(20)
-        .extent([[10, 10], [width - 10, height - 10]]);
+      .nodeWidth(20)
+      .nodePadding(30)
+      .extent([[1, 1], [width - 1, height - 6]]);
 
-    const {nodes, links} = sankey(graph);
+    sankey(graph);
 
-    const colorMap = {
-      Indeed: "#1f77b4",
-      Referrals: "#2ca02c",
-      Facebook: "#ff7f0e",
-      Ads: "#9467bd",
-      Craigslist: "#d62728"
-    };
+    svg.append("g")
+      .selectAll("rect")
+      .data(graph.nodes)
+      .enter().append("rect")
+      .attr("x", d => d.x0)
+      .attr("y", d => d.y0)
+      .attr("height", d => d.y1 - d.y0)
+      .attr("width", d => d.x1 - d.x0)
+      .attr("fill", "#4682b4");
 
     svg.append("g")
       .selectAll("path")
-      .data(links)
-      .join("path")
-        .attr("d", d3.sankeyLinkHorizontal())
-        .attr("stroke", d => {
-          if (d.origin) { return colorMap[d.origin] || "#999"; }
-          return "#aaa";
-        })
-        .attr("stroke-width", d => Math.max(1, d.width))
-        .attr("fill", "none")
-        .attr("stroke-opacity", 0.4);
+      .data(graph.links)
+      .enter().append("path")
+      .attr("d", d3.sankeyLinkHorizontal())
+      .attr("stroke-width", d => d.width)
+      .attr("stroke", d => d.color)
+      .attr("fill", "none")
+      .attr("opacity", 0.5);
 
-    const node = svg.append("g")
-      .selectAll("g")
-      .data(nodes)
-      .join("g")
-        .attr("transform", d => `translate(${d.x0},${d.y0})`);
-
-    node.append("rect")
-        .attr("height", d => d.y1 - d.y0)
-        .attr("width", sankey.nodeWidth())
-        .attr("fill", "#666")
-        .attr("stroke", "#000");
-
-    node.append("text")
-        .attr("x", d => (d.x0 < width / 2 ? sankey.nodeWidth() + 6 : -6))
-        .attr("y", d => (d.y1 - d.y0) / 2)
-        .attr("dy", "0.35em")
-        .attr("text-anchor", d => (d.x0 < width / 2 ? "start" : "end"))
-        .text(d => d.name);
+    svg.append("g")
+      .selectAll("text")
+      .data(graph.nodes)
+      .enter().append("text")
+      .attr("x", d => d.x0 - 6)
+      .attr("y", d => (d.y0 + d.y1) / 2)
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "end")
+      .text(d => d.name);
   </script>
 </body>
 </html>

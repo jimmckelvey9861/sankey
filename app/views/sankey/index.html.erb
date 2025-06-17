@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sankey Pipeline</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+  <style>
+    body { font-family: sans-serif; }
+    .node rect { stroke: #000; }
+    .node text { font: 14px sans-serif; text-anchor: middle; }
+  </style>
+</head>
+<body>
+  <h1>Sankey Pipeline - <%= @month_label %></h1>
+
+  <form method="get" action="/sankey">
+    <label for="month">Select Month:</label>
+    <select name="month" id="month" onchange="this.form.submit()">
+      <% @months.each_with_index do |month, idx| %>
+        <option value="<%= idx+1 %>" <%= 'selected' if (idx+1)==params[:month].to_i || (params[:month].blank? && idx==0) %>>
+          <%= month[:month] %>
+        </option>
+      <% end %>
+    </select>
+  </form>
+
+  <svg id="sankey" width="1200" height="800"></svg>
+
+  <script>
+    const graph = <%= raw @graph_data.to_json %>;
+
+    const svg = d3.select("#sankey"),
+          width = +svg.attr("width"),
+          height = +svg.attr("height");
+
+    const sankey = d3.sankey()
+        .nodeWidth(20)
+        .nodePadding(20)
+        .extent([[10, 10], [width - 10, height - 10]]);
+
+    const {nodes, links} = sankey(graph);
+
+    const colorMap = {
+      Indeed: "#1f77b4",
+      Referrals: "#2ca02c",
+      Facebook: "#ff7f0e",
+      Ads: "#9467bd",
+      Craigslist: "#d62728"
+    };
+
+    svg.append("g")
+      .selectAll("path")
+      .data(links)
+      .join("path")
+        .attr("d", d3.sankeyLinkHorizontal())
+        .attr("stroke", d => {
+          if (d.origin) { return colorMap[d.origin] || "#999"; }
+          return "#aaa";
+        })
+        .attr("stroke-width", d => Math.max(1, d.width))
+        .attr("fill", "none")
+        .attr("stroke-opacity", 0.4);
+
+    const node = svg.append("g")
+      .selectAll("g")
+      .data(nodes)
+      .join("g")
+        .attr("transform", d => `translate(${d.x0},${d.y0})`);
+
+    node.append("rect")
+        .attr("height", d => d.y1 - d.y0)
+        .attr("width", sankey.nodeWidth())
+        .attr("fill", "#666")
+        .attr("stroke", "#000");
+
+    node.append("text")
+        .attr("x", d => (d.x0 < width / 2 ? sankey.nodeWidth() + 6 : -6))
+        .attr("y", d => (d.y1 - d.y0) / 2)
+        .attr("dy", "0.35em")
+        .attr("text-anchor", d => (d.x0 < width / 2 ? "start" : "end"))
+        .text(d => d.name);
+  </script>
+</body>
+</html>

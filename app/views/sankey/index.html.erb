@@ -40,7 +40,25 @@
       .nodePadding(30)
       .extent([[1, 1], [width - 1, height - 6]]);
 
+    // Add node positions from our Ruby code
+    graph.nodes.forEach((node, i) => {
+      node.x = <%= raw @node_x.map { |x| "#{x} * width" }.join(', ') %>[i];
+      node.y = <%= raw @node_y.map { |y| "#{y} * height" }.join(', ') %>[i];
+    });
+
     sankey(graph);
+
+    // After layout is calculated, adjust Pending position
+    graph.nodes.forEach(node => {
+      if (node.name === "Pending") {
+        const reviewedNode = graph.nodes.find(n => n.name === "Reviewed");
+        if (reviewedNode) {
+          // Keep the same y position but match x position with Reviewed
+          node.x0 = reviewedNode.x0;
+          node.x1 = reviewedNode.x1;
+        }
+      }
+    });
 
     svg.append("g")
       .selectAll("rect")

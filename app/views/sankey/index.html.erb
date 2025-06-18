@@ -68,7 +68,32 @@
       .attr("y", d => d.y0)
       .attr("height", d => d.y1 - d.y0)
       .attr("width", d => d.x1 - d.x0)
-      .attr("fill", "#4682b4");
+      .attr("fill", d => {
+        // Darker versions of the flow colors for source nodes
+        const darkColors = {
+          "Indeed": "#14538c",     // Darker version of #1f77b4
+          "Facebook": "#b35000",    // Darker version of #ff7f0e
+          "Referrals": "#1f701f",  // Darker version of #2ca02c
+          "Craigslist": "#961c1c", // Darker version of #d62728
+          "Ads": "#602642"         // Darker version of #9467bd (as specified)
+        };
+        return darkColors[d.name] || "#4682b4";  // Default blue for other nodes
+      });
+
+    // Add source labels inside nodes
+    svg.append("g")
+      .selectAll("text.source-label")
+      .data(graph.nodes.filter(d => ["Indeed", "Facebook", "Referrals", "Craigslist", "Ads"].includes(d.name)))
+      .enter().append("text")
+      .attr("class", "source-label")
+      .attr("x", d => d.x0 + (d.x1 - d.x0) / 2)  // Center horizontally
+      .attr("y", d => d.y0 + (d.y1 - d.y0) / 2)  // Center vertically
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "middle")
+      .attr("fill", "white")
+      .style("font", "12px sans-serif")
+      .attr("transform", d => `rotate(90, ${d.x0 + (d.x1 - d.x0) / 2}, ${d.y0 + (d.y1 - d.y0) / 2})`)
+      .text(d => d.name);
 
     svg.append("g")
       .selectAll("path")

@@ -69,7 +69,7 @@
       .attr("height", d => d.y1 - d.y0)
       .attr("width", d => d.x1 - d.x0)
       .attr("fill", d => {
-        // Darker versions of the flow colors for source nodes
+        // Darker versions of the flow colors for source nodes, lighter grey for others
         const darkColors = {
           "Indeed": "#14538c",     // Darker version of #1f77b4
           "Facebook": "#b35000",    // Darker version of #ff7f0e
@@ -77,15 +77,15 @@
           "Craigslist": "#961c1c", // Darker version of #d62728
           "Ads": "#602642"         // Darker version of #9467bd (as specified)
         };
-        return darkColors[d.name] || "#4682b4";  // Default blue for other nodes
+        return darkColors[d.name] || "#666666";  // Lighter grey for non-source nodes
       });
 
-    // Add source labels inside nodes
+    // Add rotated white labels for all nodes
     svg.append("g")
-      .selectAll("text.source-label")
-      .data(graph.nodes.filter(d => ["Indeed", "Facebook", "Referrals", "Craigslist", "Ads"].includes(d.name)))
+      .selectAll("text.node-label")
+      .data(graph.nodes)
       .enter().append("text")
-      .attr("class", "source-label")
+      .attr("class", "node-label")
       .attr("x", d => d.x0 + (d.x1 - d.x0) / 2)  // Center horizontally
       .attr("y", d => d.y0 + (d.y1 - d.y0) / 2)  // Center vertically
       .attr("dy", "0.35em")
@@ -105,15 +105,7 @@
       .attr("fill", "none")
       .attr("opacity", 0.5);
 
-    svg.append("g")
-      .selectAll("text")
-      .data(graph.nodes)
-      .enter().append("text")
-      .attr("x", d => d.x0 - 6)
-      .attr("y", d => (d.y0 + d.y1) / 2)
-      .attr("dy", "0.35em")
-      .attr("text-anchor", "end")
-      .text(d => d.name);
+
   </script>
 </body>
 </html>
